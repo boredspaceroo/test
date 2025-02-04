@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Simplified Space Invaders Ship – Revision 2</title>
+    <!-- p5.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  </head>
+  <body>
+    <script>
+      // Global arrays for the bouncing cubes inside the container
+      let leftTesseracts = [];
+      let rightTesseracts = [];
+      const numTesseracts = 3;
+      const containerRadius = 15;  // smaller container radius
+      const tesseractSize = 6;
+      
+      // Global arrays for fire particles (for the engine nozzle)
+      let leftFireParticles = [];
+      let rightFireParticles = [];
+
+      function setup() {
+        createCanvas(800, 600, WEBGL);
+        angleMode(RADIANS);
+        // Initialize tesseracts for each engine container.
+        for (let i = 0; i < numTesseracts; i++) {
+          leftTesseracts.push({
+            pos: randomPointInCircle(containerRadius - tesseractSize),
+            vel: p5.Vector.random2D().mult(0.5)
+          });
+          rightTesseracts.push({
+            pos: randomPointInCircle(containerRadius - tesseractSize),
+            vel: p5.Vector.random2D().mult(0.5)
+          });
+        }
+      }
+
+      // Returns a random point (as a p5.Vector) inside a circle of radius r.
+      function randomPointInCircle(r) {
+        let angle = random(TWO_PI);
+        let rad = random(r);
+        return createVector(rad * cos(angle), rad * sin(angle));
+      }
+
+      function draw() {
+        background(10);
+        orbitControl();
+
+        // Scale down the entire ship slightly
+        scale(0.8);
+
+        // Update the positions of the bouncing cubes (tesseracts)
+        updateTesseracts(leftTesseracts);
+        updateTesseracts(rightTesseracts);
+
+        // Draw two simplified engines
+        // Bring them closer together (using -40 and 40 on x)
+        drawEngine(-40, -50, true, leftTesseracts, leftFireParticles);
+        drawEngine(40, -50, false, rightTesseracts, rightFireParticles);
+
+        // Draw the central pod as a flat oval shape.
+        drawPod(0, 40, 0);
+      }
+
+      // Update each tesseract’s position and bounce it off the circular boundary.
+      function updateTesseracts(tesseracts) {
+        for (let t of tesseracts) {
+          t.pos.add(t.vel);
+          if (t.pos.mag() > containerRadius - tesseractSize / 2) {
+            let normal = t.pos.copy().normalize();
+            let dot = t.vel.dot(normal);
+            let reflect = p5.Vector.sub(t.vel, p5.Vector.mult(normal, 2 * dot));
+            t.vel = reflect;
+            t.pos = normal.mult(containerRadius - tesseractSize / 2);
+          }
+        }
+      }
+
+      // Draw a simplified engine assembly at (x,y).
+      // The engine has two parts: 
+      //   1. A rotating container cylinder (with bouncing cubes inside)
+      //   2. A lower nozzle that emits fire particles.
+      function drawEngine(x, y, isLeft, tesseracts, fireParticles) {
+        push();
+        translate(x, y, 0);
+
+        // --- Part 1: Container Cylinder ---
+        push();
+        translate(0, -20, 0);  // position the container above the nozzle
+        // Rotate differently for left/right engines.
+        let angle = isLeft ? frameCount * 0.01 : -frameCount * 0.01;
+        rotateY(angle);
+        stroke(0, 255, 255);  // neon teal
+        noFill();
+        // Use very few segments (radialDetail = 4, heightDetail = 2) for a simpler wireframe
+        cylinder(15, 40, 4, 2);
+        // Draw bouncing cubes (tesseracts) inside the container.
+        for (let t of tesseracts) {
+          push();
+          translate(t.pos.x, 0, t.pos.y);
+          stroke(255, 0, 255); // neon magenta
+          box(tesseractSize);
+          pop();
+        }
+        pop();
+
+        // --- Part 2: Engine Nozzle with Fire ---
+        push();
+        translate(0, 20, 0);
+        stroke(255, 140, 0); // neon orange
+        noFill();
+        cylinder(8, 20, 4, 2);
+        pop();
+
+        // --- Fire Particle System ---
+        // Emit fewer particles (only 1 per frame) from the bottom center of the nozzle.
+        let emitPos = createVector(0, 10, 0);
+        if (frameCount % 2 === 0) {  // emit every other frame
+          fireParticles.push({
+            pos: emitPos.copy(),
+            vel: createVector(random(-0.5, 0.5), random(1, 2), random(-0.5, 0.5)),
+            life: 255
+          });
+        }
+        // Update and render fire particles.
+        for (let i = fireParticles.length - 1; i >= 0; i--) {
+          let p = fireParticles[i];
+          p.pos.add(p.vel);
+          p.life -= 5;
+          // Use sky blue for the fire particles (RGBA).
+          stroke(135, 206, 235, p.life);
+          push();
+          translate(p.pos.x, p.pos.y, p.pos.z);
+          sphere(1.5);
+          pop();
+          if (p.life <= 0) {
+            fireParticles.splice(i, 1);
+          }
+        }
+        pop();
+      }
+
+      // Draws a simplified central pod as a flat oval shape.
+      // The oval is drawn as a flattened ellipse in the X-Z plane.
+      function drawPod(x, y, z) {
+        push();
+        translate(x, y, z);
+        // Draw a flat oval by rotating the ellipse so it lies horizontally.
+        rotateX(HALF_PI);
+        noFill();
+        stroke(0, 255, 0);  // neon green
+        // p5's ellipse draws a 2D ellipse; here we treat it as our flat oval.
+        // The first parameter is the x-radius, the second is the y-radius.
+        ellipse(0, 0, 80, 40);
+        pop();
+      }
+    </script>
+  </body>
+</html>
