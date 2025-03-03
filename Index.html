@@ -1,1 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Metal Slug Style Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #333;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #gameCanvas {
+            background: linear-gradient(to bottom, #87CEEB 60%, #4B6455 100%);
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+            touch-action: none;
+        }
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+        <div class="controls">
+            <div class="control-btn" id="leftBtn">←</div>
+            <div class="control-btn" id="jumpBtn">↑</div>
+            <div class="control-btn" id="rightBtn">→</div>
+        </div>
+    </div>
 
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Set canvas size
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// Game state
+const state = {
+    viewX: 0,
+    player: {
+        x: 100,
+        y: 300,
+        width: 40,
+        height: 60,
+        velocityY: 0,
+        isGrounded: false,
+        facing: 'right'
+    },
+    enemies: [],
+    bullets: [],
+    platforms: [
+        { x: 0, y: 400, width: 2000, height: 100 },
+        { x: 300, y: 300, width: 100, height: 20 },
+        { x: 600, y: 250, width: 100, height: 20 }
+    ],
+    controls: {
+        left: false,
+        right: false,
+        jump: false
+    }
+};
+
+// Add initial enemy
+state.enemies.push({
+    x: 500,
+    y: 340,
+    width: 40,
+    height: 60,
+    direction: -1,
+    shootTimer: 0
+});
+
+// Touch controls
+document.getElementById('leftBtn').addEventListener('touchstart', () => state.controls.left = true);
+document.getElementById('leftBtn').addEventListener('touchend', () => state.controls.left = false);
+document.getElementById('rightBtn').addEventListener('touchstart', () => state.controls.right = true);
+document.getElementById('rightBtn').addEventListener('touchend', () => state.controls.right = false);
+document.getElementById('jumpBtn').addEventListener('touchstart', () => {
+    if(state.player.isGrounded) state.controls.jump = true;
+});
+
+// Game loop
+function update() {
+    // Player movement
+    if(state.controls.left) {
+        state.player.x -= 5;
+        state.player.facing = 'left';
+    }
+    if(state.controls.right) {
+        state.player.x += 5;
+        state.player.facing = 'right';
+    }
+    
+    // Jump
+    if(state.controls.jump) {
+        state.player.velocityY = -15;
+        state.player.isGrounded = false;
+        state.controls.jump = false;
+    }
+    
+    // Apply gravity
+    state.player.velocityY += 0.8;
+    state.player.y += state.player.velocityY;
+    
+    // Collision detection
+    state.player.isGrounded = false;
+    for(let platform of state.platforms) {
+        if(checkCollision(state.player, platform)) {
+            if(state.player.velocityY > 0) {
+                state.player.y = platform.y - state.player.height;
+                state.player.velocityY = 0;
+                state.player.isGrounded = true;
+            }
+        }
+    }
+    
+    // Enemy AI
+    for(let enemy of state.enemies) {
+        enemy.x += enemy.direction * 2;
+        enemy.shootTimer++;
+        
+        // Shoot at player
+        if(Math.abs(enemy.x - state.player.x) < 200 && enemy.shootTimer > 60) {
+            state.bullets.push({
+                x: enemy.x,
+                y: enemy.y + 30,
+                width: 10,
+                height: 10,
+                direction: enemy.direction
+            });
+            enemy.shootTimer = 0;
+        }
+    }
+    
+    // Update bullets
+    for(let bullet of state.bullets) {
+        bullet.x += bullet.direction * 10;
+    }
+    
+    // Update view position
+    state.viewX = state.player.x - canvas.width/2;
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw platforms
+    ctx.fillStyle = '#4B6455';
+    for(let platform of state.platforms) {
+        ctx.fillRect(platform.x - state.viewX, platform.y, platform.width, platform.height);
+    }
+    
+    // Draw player
+    ctx.fillStyle = '#00F';
+    ctx.fillRect(
+        state.player.x - state.viewX,
+        state.player.y,
+        state.player.width,
+        state.player.height
+    );
+    
+    // Draw enemies
+    ctx.fillStyle = '#F00';
+    for(let enemy of state.enemies) {
+        ctx.fillRect(
+            enemy.x - state.viewX,
+            enemy.y,
+            enemy.width,
+            enemy.height
+        );
+    }
+    
+    // Draw bullets
+    ctx.fillStyle = '#FF0';
+    for(let bullet of state.bullets) {
+        ctx.beginPath();
+        ctx.arc(
+            bullet.x - state.viewX,
+            bullet.y,
+            bullet.width,
+            0,
+            Math.PI * 2
+        );
+        ctx.fill();
+    }
+}
+
+function checkCollision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
+}
+
+// Run game loop
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
