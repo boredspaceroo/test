@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Pixi.js Sprite Sheet Inline JSON</title>
+  <title>Sprite Zoom Test</title>
   <style>
     body { margin: 0; background: #111; overflow: hidden; }
     canvas { display: block; margin: 0 auto; }
@@ -18,13 +18,14 @@
     });
     document.body.appendChild(app.view);
 
-    // Inline JSON map from sprite_sheet.json
+    // Inline frame map from your sprite_sheet.json
     const frameData = {
       "frame_1": { "x": 0, "y": 0, "w": 64, "h": 64 },
       "frame_2": { "x": 64, "y": 0, "w": 64, "h": 64 },
       "frame_3": { "x": 128, "y": 0, "w": 64, "h": 64 }
     };
 
+    // Load the sprite sheet image
     PIXI.Assets.load('sprite_sheet.png').then(texture => {
       const frames = [];
 
@@ -40,8 +41,21 @@
       sprite.y = app.screen.height / 2;
       sprite.animationSpeed = 0.1;
       sprite.play();
-
       app.stage.addChild(sprite);
+
+      // Simulated depth-based zoom
+      let z = 300; // start depth
+      const speed = 2;
+      const maxZ = 300;
+      const minZ = 40;
+
+      app.ticker.add(() => {
+        z -= speed;
+        if (z < minZ) z = maxZ;
+
+        let scale = 1 + (maxZ - z) / 60;
+        sprite.scale.set(scale);
+      });
     });
   </script>
 </body>
